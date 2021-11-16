@@ -20,7 +20,7 @@ Step 2: After open editor open directory where the project cloned "/Flutter-user
 
 Step 3: Open the terminal and run command "uvicorn movie_task.main:app --reload"
 
-YOU GET: INFO:     Will watch for changes in these directories: ['C:\\projects\\FastApi']
+YOU GET: INFO:  
 
          INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
          
