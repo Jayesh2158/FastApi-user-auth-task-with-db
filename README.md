@@ -13,7 +13,8 @@ Use of the project :
   4. And also help user to review movies in less time.
 
 Deployment in system as developer mode:
-Step 1: Clone project form recent repo.
+
+Step 1: Clone project from recent repo.
 
 Step 2: After open editor open directory where the project cloned "/Flutter-user-auth-task-with-db/".
 
