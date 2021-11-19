@@ -1,5 +1,3 @@
-# import database as _database
-# from sqlalchemy import engine
 import sqlalchemy.orm as _orm
 from sqlalchemy.orm.session import Session
 
@@ -9,7 +7,7 @@ from .database import engine, SessionLocal
 
 
 def create_database():
-    return models.Base.metadata.create_all(bind=engine)  # bind=engine
+    return models.Base.metadata.create_all(bind=engine)
 
 
 def get_db():
@@ -43,10 +41,38 @@ def get_user(db: Session, user_id: int):
 
 
 def create_movie(db: Session, movie: schema.MoviesCreate, user_id: int):
-    import pdb;
-    pdb.set_trace()
     new_movie = models.Movies(**movie.dict(), owner_id=user_id)
     db.add(new_movie)
     db.commit()
     db.refresh(new_movie)
     return new_movie
+
+
+def get_movies(db: Session,  skip: int, limit: int):
+    return db.query(models.Movies, models.Comments).join(models.Comments).filter(models.Movies.id == models.Comments.movie_id).all()
+
+
+def get_movie(db: Session, movie_id: int):
+    return db.query(models.Movies).filter(models.Movies.id == movie_id).first()
+
+
+def delete_movie(db: Session, movie_id: int):
+    db.query(models.Movies).filter(models.Movies.id == movie_id).delete()
+    db.commit()
+
+
+def add_comment(db: Session, movie_id: int, comment: schema.CommentsCreate):
+    new_comment = models.Comments(**comment.dict(), movie_id=movie_id)
+    db.add(new_comment)
+    db.commit()
+    db.refresh(new_comment)
+    return new_comment
+
+
+def temp(db: Session):
+    return db.query(models.User, models.Movies, models.Comments).join(models.User).filter(
+        models.User.id == models.Movies.owner_id).filter(models.Movies.id == models.Comments.movie_id).all()
+        
+
+def get_all_comments(db: Session, skip: int, limit: int):
+    return db.query(models.Comments).offset(skip).limit(limit).all()

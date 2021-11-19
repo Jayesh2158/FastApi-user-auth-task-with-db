@@ -1,6 +1,7 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Table
 from sqlalchemy.orm import relationship
 from .database import Base
+
 
 class User(Base):
     __tablename__ = "users" 
@@ -8,8 +9,6 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
-
-    # movies = relationship("Movies", back_populates="user")
     movies = relationship("Movies", back_populates="owner")
 
 
@@ -18,6 +17,8 @@ class Comments(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     content = Column(String, index=True)
+    movie_id = Column(Integer, ForeignKey('movies.id'))
+    movie = relationship("Movies", back_populates="comment")
 
 
 class Movies(Base):
@@ -28,8 +29,8 @@ class Movies(Base):
     release_year = Column(Integer, index=True)
     genres = Column(String, index=True)
     owner_id = Column(Integer, ForeignKey('users.id'))
-    
     owner = relationship("User", back_populates="movies")
+    comment = relationship("Comments", back_populates="movie")
 
 
 
