@@ -1,5 +1,14 @@
-from typing import List
-from pydantic import BaseModel
+from typing import List, Optional
+from pydantic import BaseModel, EmailStr
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+
+class TokenData(BaseModel):
+    username: Optional[str] = None
 
 
 class CommentsBase(BaseModel):
@@ -43,7 +52,7 @@ class User_login(BaseModel):
 
 
 class UserBase(BaseModel):
-    email: str
+    email: EmailStr
 
 
 class UserCreate(UserBase):
@@ -56,7 +65,3 @@ class User(UserBase):
 
     class Config:
         orm_mode = True
-
-
-
-

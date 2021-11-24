@@ -1,10 +1,12 @@
-from typing import List, Optional
-from fastapi import Depends, FastAPI, HTTPException
-from fastapi.encoders import jsonable_encoder
-from . import crud, schema, user, services
-from fastapi.security import OAuth2PasswordBearer
-from .database import SessionLocal, engine
+from datetime import timedelta
+from typing import List
+from fastapi import Depends, FastAPI, HTTPException, status
+from jose.exceptions import JWEError
+from . import schema, services, jwt_handlers, models
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from jose import jwt
+
 
 services.create_database()
 
@@ -12,12 +14,32 @@ app = FastAPI()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-movies = []
+ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 
-@app.get("/")
-def read_root():
-    return {"title": "Welcome to Movie mania"}
+def get_current_user(
+        db: Session = Depends(services.get_db), token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(
+            token,
+            jwt_handlers.SECRET_KEY,
+            algorithms=[jwt_handlers.ALGORITHM],
+            options={"verify_aud": False},
+        )
+        user_id: str = payload.get("sub")
+        token_data = schema.TokenData(username=user_id)
+    except JWEError:
+        raise credentials_exception
+    user = db.query(models.User).filter(
+        models.User.id == token_data.username).first()
+    if user is None:
+        raise credentials_exception
+    return user
 
 
 @app.post("/users/", response_model=schema.User)
@@ -28,6 +50,21 @@ def create_user(user: schema.UserCreate, db: Session = Depends(services.get_db))
             status_code=400, detail="this email already in use."
         )
     return services.create_user(db=db, user=user)
+
+
+@app.post("/token", response_model=schema.Token)
+def login(db: Session = Depends(services.get_db), form_data: OAuth2PasswordRequestForm = Depends()):
+    user = services.authenticate_user(
+        email=form_data.username, password=form_data.password, db=db)
+    if not user:
+        raise HTTPException(
+            status_code=400, detail="Incorrect username or password")
+
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = jwt_handlers.create_access_token(
+        data={"sub": user.id}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
 
 
 @app.get("/users/", response_model=List[schema.User])
@@ -59,6 +96,7 @@ def crate_movie(user_id: int, movie: schema.MoviesCreate, db: Session = Depends(
     return services.create_movie(db=db, movie=movie, user_id=user_id)
 
 
+# Todo
 @app.get("/movies/", response_model=List[schema.Movies])
 def read_movies(skip: int = 0, limit: int = 100, db: Session = Depends(services.get_db)):
     movie_all = services.get_movies(db=db, skip=skip, limit=limit)
@@ -83,7 +121,7 @@ def delete_movie(movie_id: int, db: Session = Depends(services.get_db)):
 
 
 @app.post("/movies/{movie_id}/comments")
-def add_comment(movie_id: int, comment: schema.CommentsCreate, db: Session=Depends(services.get_db)):
+def add_comment(movie_id: int, comment: schema.CommentsCreate, db: Session = Depends(services.get_db)):
     return services.add_comment(db=db, comment=comment, movie_id=movie_id)
 
 
@@ -94,6 +132,15 @@ def get_relation():
 
 
 @app.get("/comments/")
-def get_all_comments(skip: int = 0, limit: int = 100, db: Session = Depends(services.get_db)):
+def get_all_comments(skip: int = 0,
+                     limit: int = 100,
+                     db: Session = Depends(services.get_db)):
     comments = services.get_all_comments(db=db, skip=skip, limit=limit)
     return comments
+
+#todo testing
+@app.get("/user_testing", response_model=schema.User)
+def read_users_me(current_user: schema.User = Depends(get_current_user)):
+
+    user = current_user
+    return user

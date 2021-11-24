@@ -11,7 +11,7 @@ class User(Base):
     hashed_password = Column(String)
     movies = relationship("Movies", back_populates="owner")
 
-
+    
 class Comments(Base):
     __tablename__ = "comments"
 

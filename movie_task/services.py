@@ -1,8 +1,7 @@
 import sqlalchemy.orm as _orm
 from sqlalchemy.orm.session import Session
-
 from movie_task import schema
-from . import models
+from . import models, jwt_handlers
 from .database import engine, SessionLocal
 
 
@@ -27,9 +26,9 @@ def get_user_by_email(db: _orm.Session, email: str):
 
 
 def create_user(db: _orm.Session, user: schema.UserCreate):
-    fake_hashed_password = user.password + "thisisnotsecure"
+    hash_password = jwt_handlers.get_password_hash(user.password)
     db_user = models.User(
-        email=user.email, hashed_password=fake_hashed_password)
+        email=user.email, hashed_password=hash_password)
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
@@ -46,6 +45,8 @@ def create_movie(db: Session, movie: schema.MoviesCreate, user_id: int):
     db.commit()
     db.refresh(new_movie)
     return new_movie
+
+# todo testing
 
 
 def get_movies(db: Session,  skip: int, limit: int):
@@ -68,11 +69,22 @@ def add_comment(db: Session, movie_id: int, comment: schema.CommentsCreate):
     db.refresh(new_comment)
     return new_comment
 
+# todo testing
+
 
 def temp(db: Session):
     return db.query(models.User, models.Movies, models.Comments).join(models.User).filter(
         models.User.id == models.Movies.owner_id).filter(models.Movies.id == models.Comments.movie_id).all()
-        
+
 
 def get_all_comments(db: Session, skip: int, limit: int):
     return db.query(models.Comments).offset(skip).limit(limit).all()
+
+
+def authenticate_user(email: str, password: str, db: Session):
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if not user:
+        return None
+    if not jwt_handlers.verify_password(password, user.hashed_password):
+        return None
+    return user
