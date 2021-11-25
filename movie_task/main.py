@@ -1,11 +1,12 @@
+import json
 from datetime import timedelta
-from typing import List
 from fastapi import Depends, FastAPI, HTTPException, status
 from jose.exceptions import JWEError
 from . import schema, services, jwt_handlers, models
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from jose import jwt
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 services.create_database()
@@ -36,14 +37,14 @@ def get_current_user(
     except JWEError:
         raise credentials_exception
     user = db.query(models.User).filter(
-        models.User.id == token_data.username).first()
+        models.User.email == token_data.username).first()
     if user is None:
         raise credentials_exception
     return user
 
 
 @app.post("/users/", response_model=schema.User)
-def create_user(user: schema.UserCreate, db: Session = Depends(services.get_db)):
+def create_user(user: schema.UserCreate, db: AsyncSession = Depends(services.get_db)):
     db_user = services.get_user_by_email(db=db, email=user.email)
     if db_user:
         raise HTTPException(
@@ -53,6 +54,7 @@ def create_user(user: schema.UserCreate, db: Session = Depends(services.get_db))
 
 
 @app.post("/token", response_model=schema.Token)
+@app.post("/login", response_model=schema.Token)
 def login(db: Session = Depends(services.get_db), form_data: OAuth2PasswordRequestForm = Depends()):
     user = services.authenticate_user(
         email=form_data.username, password=form_data.password, db=db)
@@ -62,12 +64,12 @@ def login(db: Session = Depends(services.get_db), form_data: OAuth2PasswordReque
 
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = jwt_handlers.create_access_token(
-        data={"sub": user.id}, expires_delta=access_token_expires
+        data={"sub": user.email}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-@app.get("/users/", response_model=List[schema.User])
+@app.get("/users/")
 def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(services.get_db)):
     users = services.get_users(db=db, skip=skip, limit=limit)
     return users
@@ -96,14 +98,13 @@ def crate_movie(user_id: int, movie: schema.MoviesCreate, db: Session = Depends(
     return services.create_movie(db=db, movie=movie, user_id=user_id)
 
 
-# Todo
-@app.get("/movies/", response_model=List[schema.Movies])
-def read_movies(skip: int = 0, limit: int = 100, db: Session = Depends(services.get_db)):
-    movie_all = services.get_movies(db=db, skip=skip, limit=limit)
+@app.get("/movies/")
+def read_movies(db: Session = Depends(services.get_db)):
+    movie_all = services.get_movies(db=db)
     return movie_all
 
 
-@app.get("/movies/{movie_id}/", response_model=schema.Movies)
+@app.get("/movies/{movie_id}/")
 def read_movie(movie_id: int, db: Session = Depends(services.get_db)):
     db_movie = services.get_movie(db=db, movie_id=movie_id)
 
@@ -125,12 +126,6 @@ def add_comment(movie_id: int, comment: schema.CommentsCreate, db: Session = Dep
     return services.add_comment(db=db, comment=comment, movie_id=movie_id)
 
 
-@app.get("/relation/commentsToMovies/")
-def get_relation():
-    data = services.temp
-    return data
-
-
 @app.get("/comments/")
 def get_all_comments(skip: int = 0,
                      limit: int = 100,
@@ -138,9 +133,15 @@ def get_all_comments(skip: int = 0,
     comments = services.get_all_comments(db=db, skip=skip, limit=limit)
     return comments
 
-#todo testing
-@app.get("/user_testing", response_model=schema.User)
-def read_users_me(current_user: schema.User = Depends(get_current_user)):
 
-    user = current_user
-    return user
+@app.get("/user_testing")
+def read_users_me(current_user: models.User = Depends(get_current_user)):
+
+    return {"user": current_user}
+
+
+@app.get("/api/v1/health")
+async def health(db: Session = Depends(services.get_db)):
+    if db:
+        return json.dumps({"healthy": True})
+    return json.dumps({"healthy": False})

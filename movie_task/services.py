@@ -3,6 +3,7 @@ from sqlalchemy.orm.session import Session
 from movie_task import schema
 from . import models, jwt_handlers
 from .database import engine, SessionLocal
+from sqlalchemy.orm import joinedload
 
 
 def create_database():
@@ -49,12 +50,12 @@ def create_movie(db: Session, movie: schema.MoviesCreate, user_id: int):
 # todo testing
 
 
-def get_movies(db: Session,  skip: int, limit: int):
-    return db.query(models.Movies, models.Comments).join(models.Comments).filter(models.Movies.id == models.Comments.movie_id).all()
+def get_movies(db: Session):
+    return db.query(models.Movies).options(joinedload(models.Movies.comment)).all()
 
 
 def get_movie(db: Session, movie_id: int):
-    return db.query(models.Movies).filter(models.Movies.id == movie_id).first()
+    return db.query(models.Movies).filter(models.Movies.id == movie_id).options(joinedload(models.Movies.comment)).first()
 
 
 def delete_movie(db: Session, movie_id: int):
@@ -68,13 +69,6 @@ def add_comment(db: Session, movie_id: int, comment: schema.CommentsCreate):
     db.commit()
     db.refresh(new_comment)
     return new_comment
-
-# todo testing
-
-
-def temp(db: Session):
-    return db.query(models.User, models.Movies, models.Comments).join(models.User).filter(
-        models.User.id == models.Movies.owner_id).filter(models.Movies.id == models.Comments.movie_id).all()
 
 
 def get_all_comments(db: Session, skip: int, limit: int):
