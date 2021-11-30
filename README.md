@@ -32,6 +32,6 @@ YOU GET: INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to qui
         
  Step 4: Open the url "http://127.0.0.1:8000" in browser.
  
- Step 5: Foor open fastapi documentation edit the url as "http://127.0.0.1:8000/docs" and use.
+ Step 5: For open fastapi documentation edit the url as "http://127.0.0.1:8000/docs" and use.
 
   
