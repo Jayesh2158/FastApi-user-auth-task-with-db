@@ -1,5 +1,5 @@
 from sqlalchemy import Column, ForeignKey, Integer, String
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import deferred, relationship
 from .database import Base
 
 
@@ -8,7 +8,7 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True)
-    hashed_password = Column(String)
+    hashed_password = deferred(Column(String))
     movies = relationship("Movies", back_populates="owner")
 
 
@@ -30,4 +30,5 @@ class Movies(Base):
     genres = Column(String, index=True)
     owner_id = Column(Integer, ForeignKey('users.id'))
     owner = relationship("User", back_populates="movies")
-    comment = relationship("Comments", back_populates="movie")
+    comment = relationship(
+        "Comments", back_populates="movie")

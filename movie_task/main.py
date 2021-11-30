@@ -1,3 +1,4 @@
+import enum
 import json
 from datetime import timedelta
 from fastapi import Depends, FastAPI, HTTPException, status
@@ -14,8 +15,6 @@ services.create_database()
 app = FastAPI()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 
 def get_current_user(
@@ -43,14 +42,17 @@ def get_current_user(
     return user
 
 
-@app.post("/users/", response_model=schema.User)
-def create_user(user: schema.UserCreate, db: AsyncSession = Depends(services.get_db)):
-    db_user = services.get_user_by_email(db=db, email=user.email)
-    if db_user:
-        raise HTTPException(
-            status_code=400, detail="this email already in use."
-        )
-    return services.create_user(db=db, user=user)
+@app.get("/user_testing")
+def get_logined_user(current_user: models.User = Depends(get_current_user)):
+
+    return {"user": current_user}
+
+
+@app.get("/api/v1/health")
+async def health_check_api(db: Session = Depends(services.get_db)):
+    if db:
+        return json.dumps({"healthy": True})
+    return json.dumps({"healthy": False})
 
 
 @app.post("/token", response_model=schema.Token)
@@ -62,21 +64,32 @@ def login(db: Session = Depends(services.get_db), form_data: OAuth2PasswordReque
         raise HTTPException(
             status_code=400, detail="Incorrect username or password")
 
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token_expires = timedelta(
+        minutes=jwt_handlers.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = jwt_handlers.create_access_token(
         data={"sub": user.email}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-@app.get("/users/")
-def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(services.get_db)):
+@app.post("/users", response_model=schema.User)
+def register_user(user: schema.UserCreate, db: AsyncSession = Depends(services.get_db)):
+    db_user = services.get_user_by_email(db=db, email=user.email)
+    if db_user:
+        raise HTTPException(
+            status_code=400, detail="this email already in use."
+        )
+    return services.create_user(db=db, user=user)
+
+
+@app.get("/users")
+def get_users_data(skip: int = 0, limit: int = 100, db: Session = Depends(services.get_db)):
     users = services.get_users(db=db, skip=skip, limit=limit)
     return users
 
 
-@app.get("/users/{user_id}/", response_model=schema.User)
-def read_user(user_id: int, db: Session = Depends(services.get_db)):
+@app.get("/users/{user_id}")
+def get_user_data(user_id: int, db: Session = Depends(services.get_db)):
     db_user = services.get_user(db=db, user_id=user_id)
 
     if db_user is None:
@@ -86,26 +99,28 @@ def read_user(user_id: int, db: Session = Depends(services.get_db)):
     return db_user
 
 
-@app.post("/users/{user_id}/movies/", response_model=schema.Movies)
-def crate_movie(user_id: int, movie: schema.MoviesCreate, db: Session = Depends(services.get_db)):
-    db_user = services.get_user(db=db, user_id=user_id)
+@app.post("/users/movies", response_model=schema.Movies)
+def add_user_movie(movie: schema.MoviesCreate, db: Session = Depends(services.get_db),
+                   current_user: models.User = Depends(get_current_user)):
+
+    db_user = services.get_user(db=db, user_id=current_user.id)
 
     if db_user is None:
         raise HTTPException(
             status_code=404, detail="user does not exist"
         )
 
-    return services.create_movie(db=db, movie=movie, user_id=user_id)
+    return services.create_movie(db=db, movie=movie, user_id=current_user.id)
 
 
-@app.get("/movies/")
-def read_movies(db: Session = Depends(services.get_db)):
-    movie_all = services.get_movies(db=db)
+@app.get("/movies")
+def read_movies(skip: int = 0, limit: int = 100, db: Session = Depends(services.get_db)):
+    movie_all = services.get_movies(db=db, skip=skip, limit=limit)
     return movie_all
 
 
-@app.get("/movies/{movie_id}/")
-def read_movie(movie_id: int, db: Session = Depends(services.get_db)):
+@app.get("/movies/{movie_id}")
+def get_movie_detail(movie_id: int, db: Session = Depends(services.get_db)):
     db_movie = services.get_movie(db=db, movie_id=movie_id)
 
     if db_movie is None:
@@ -115,33 +130,52 @@ def read_movie(movie_id: int, db: Session = Depends(services.get_db)):
     return db_movie
 
 
-@app.delete("/movies/{movie_id}/")
+@app.delete("/movies/{movie_id}")
 def delete_movie(movie_id: int, db: Session = Depends(services.get_db)):
     services.delete_movie(db=db, movie_id=movie_id)
-    return {"message": "seccessfully delete post with id : {movie_id}"}
+
+    return {"message": f"seccessfully delete movie with id: {movie_id}"}
+
+
+@app.put("/movies/{movie_id}", response_model=schema.Movies)
+def edit_movie_data(movie_id: int, movie: schema.MoviesCreate, db: Session = Depends(services.get_db)):
+    result = services.update_movie_detail(
+        db=db, movie=movie, movie_id=movie_id)
+    if result is None:
+        raise HTTPException(
+            status_code=404, detail="movie does not exist"
+        )
+    return result
 
 
 @app.post("/movies/{movie_id}/comments")
-def add_comment(movie_id: int, comment: schema.CommentsCreate, db: Session = Depends(services.get_db)):
-    return services.add_comment(db=db, comment=comment, movie_id=movie_id)
+def add_comment_to_movie(movie_id: int, comment: schema.CommentsCreate, db: Session = Depends(services.get_db)):
+    result = services.add_comment(db=db, comment=comment, movie_id=movie_id)
+    if result is None:
+        raise HTTPException(
+            status_code=404, detail="movie does not exist"
+        )
+    return result
 
 
-@app.get("/comments/")
-def get_all_comments(skip: int = 0,
-                     limit: int = 100,
-                     db: Session = Depends(services.get_db)):
-    comments = services.get_all_comments(db=db, skip=skip, limit=limit)
-    return comments
+@app.get("/latest/movies")
+def get_recently_added_movies(skip: int = 0, limit: int = 100, db: Session = Depends(services.get_db)):
+    result = services.get_latest_movies(db=db, skip=skip, limit=limit)
+    return result
 
 
-@app.get("/user_testing")
-def read_users_me(current_user: models.User = Depends(get_current_user)):
+class GenreType(str, enum.Enum):
+    comedy = "comedy"
+    sic_fic = "sic-fic"
+    string = "string"
+    action = "action"
 
-    return {"user": current_user}
+
+@app.get("/actions/movie")
+def get_movies_by_action(genre: GenreType, db: Session = Depends(services.get_db), year: int = 0, skip: int = 0, limit: int = 100):
+    return services.movies_by_action(db=db, year=year, genre=genre, skip=skip, limit=limit)
 
 
-@app.get("/api/v1/health")
-async def health(db: Session = Depends(services.get_db)):
-    if db:
-        return json.dumps({"healthy": True})
-    return json.dumps({"healthy": False})
+@app.get("/search")
+def search_movie_api(data: str, db: Session = Depends(services.get_db), skip: int = 0, limit: int = 100):
+    return services.blind_search(db=db, limit=limit, skip=skip, data=data)
