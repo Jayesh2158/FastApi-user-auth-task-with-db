@@ -1,14 +1,16 @@
 import enum
 import json
 from datetime import timedelta
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, status, Form, File, UploadFile
 from jose.exceptions import JWEError
-from . import schema, services, jwt_handlers, models
+from pydantic.networks import EmailStr
+from starlette.responses import JSONResponse
+from . import schema, services, jwt_handlers, models, emailUtils
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from jose import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
-
+import uuid
 
 services.create_database()
 
@@ -33,6 +35,7 @@ def get_current_user(
         )
         user_id: str = payload.get("sub")
         token_data = schema.TokenData(username=user_id)
+
     except JWEError:
         raise credentials_exception
     user = db.query(models.User).filter(
@@ -179,3 +182,65 @@ def get_movies_by_action(genre: GenreType, db: Session = Depends(services.get_db
 @app.get("/search")
 def search_movie_api(data: str, db: Session = Depends(services.get_db), skip: int = 0, limit: int = 100):
     return services.blind_search(db=db, limit=limit, skip=skip, data=data)
+
+
+@app.post("/forgetPass")
+async def forget_password(email: EmailStr, db: Session = Depends(services.get_db)):
+    user = services.get_user_by_email(db=db, email=email)
+    if user is None:
+        raise HTTPException(
+            status_code=404, detail="this user does not exist"
+        )
+    reset_code = str(uuid.uuid1())
+    services.create_reset_code(email, reset_code, db)
+    subject = "Hello Coder"
+    recipient = [email]
+    message = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+    <title>Reset Password</title>
+    </head>
+    <body>
+    <a href="http://127.0.0.1:8000/user/forgot-password?reset_password_token={}">Pass-Reset-link</a>
+    </body>
+    </html>""".format(reset_code)
+    await emailUtils.send_mail(subject, recipient, message)
+    return JSONResponse(status_code=200, content={"reset_code": reset_code, "message": "email has been sent"})
+
+
+@app.post("/files/")
+async def create_file(
+    file: bytes = File(...), fileb: UploadFile = File(...), token: str = Form(...)
+):
+    return {
+        "file_size": len(file),
+        "token": token,
+        "fileb_content_type": fileb.content_type,
+    }
+
+
+@app.post("/app-login")
+def login_data(db: Session = Depends(services.get_db),
+               current_user: models.User = Depends(get_current_user)):
+    return services.get_latest_movies(db=db, skip=0, limit=10)
+
+
+@app.post("/reset-password")
+async def reset_password(data: schema.Reset_password, db: Session = Depends(services.get_db)):
+    black_list_token = services.black_list_check(db=db, token=data.reset_token)
+    if black_list_token is not None:
+        raise HTTPException(
+            status_code=404, detail="Not Found"
+        )
+    expire_check = services.token_expire_check(db=db, token=data.reset_token)
+    if expire_check:
+        raise HTTPException(
+            status_code=404, detail="Not Found"
+        )
+    if data.password != data.confirm_password:
+        if expire_check:
+            raise HTTPException(
+                status_code=400, detail="Not Request"
+            )
+    return services.reset_user_password(db=db, data=data)

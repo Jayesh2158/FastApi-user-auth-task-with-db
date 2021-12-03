@@ -1,3 +1,4 @@
+import datetime
 from fastapi.exceptions import HTTPException
 import sqlalchemy.orm as _orm
 from sqlalchemy.orm import session
@@ -140,7 +141,7 @@ def movies_by_action(db: Session, year: int, genre: str, skip: int, limit: int):
 
 
 def blind_search(db: session, data: str, limit: int, skip: int):
-    movie = db.query(models.Movies).filter(or_(models.Movies.name.like(data), models.Movies.genres.like(
+    movie = db.query(models.Movies).filter(or_(models.Movies.name.contains(data), models.Movies.genres.contains(
         data), models.Movies.release_year.like(data))).options(
         joinedload(models.Movies.comment)).offset(skip).limit(limit).all()
 
@@ -149,3 +150,45 @@ def blind_search(db: session, data: str, limit: int, skip: int):
             status_code=404, detail="No data found"
         )
     return movie
+
+
+def create_reset_code(email: str, reset_code: str, db: Session):
+    new_code = models.Forgotpass_code(
+        reset_code=reset_code, email=email, status="1")
+    db.add(new_code)
+    db.commit()
+    db.refresh(new_code)
+
+
+def black_list_check(db: Session, token: str):
+    return db.query(models.Black_list).filter(models.Black_list.token == token).first()
+
+
+def token_expire_check(db: Session, token: str):
+    fetch_token = db.query(models.Forgotpass_code).filter(
+        models.Forgotpass_code.reset_code == token).first()
+    if fetch_token.expired_in - datetime.datetime.now() >= datetime.timedelta(minutes=10):
+        return True
+    return False
+
+
+def reset_user_password(db: Session, data: schema.Reset_password):
+    token = db.query(models.Forgotpass_code).filter(
+        models.Forgotpass_code.reset_code == data.reset_token).first()
+    if token is None:
+        raise HTTPException(
+            status_code=404, detail="No token found"
+        )
+    user = db.query(models.User).filter(
+        models.User.email == token.email).first()
+    if user is None:
+        raise HTTPException(
+            status_code=404, detail="No user found"
+        )
+    new_password = jwt_handlers.get_password_hash(data.password)
+    user.hashed_password = new_password
+    add_token_to_black_list = models.Black_list(token=data.reset_token)
+    db.add(add_token_to_black_list)
+    db.commit()
+    db.refresh(user)
+    return {"detail": "password reset successfully"}

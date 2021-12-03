@@ -70,3 +70,9 @@ class User(UserBase):
 class ShowUser(BaseModel):
     id: int
     email: str
+
+
+class Reset_password(BaseModel):
+    reset_token: str
+    password: str
+    confirm_password: str

@@ -1,5 +1,7 @@
+import datetime
 from sqlalchemy import Column, ForeignKey, Integer, String
 from sqlalchemy.orm import deferred, relationship
+from sqlalchemy.sql.sqltypes import DateTime
 from .database import Base
 
 
@@ -32,3 +34,20 @@ class Movies(Base):
     owner = relationship("User", back_populates="movies")
     comment = relationship(
         "Comments", back_populates="movie")
+
+
+class Forgotpass_code(Base):
+    __tablename__ = "codes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, index=True)
+    reset_code = Column(String, index=True)
+    status = Column(String(1), index=True)
+    expired_in = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class Black_list(Base):
+    __tablename__ = "black-list"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    token = Column(String, index=True)
