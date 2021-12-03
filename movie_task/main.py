@@ -244,3 +244,5 @@ async def reset_password(data: schema.Reset_password, db: Session = Depends(serv
                 status_code=400, detail="Not Request"
             )
     return services.reset_user_password(db=db, data=data)
+
+    
