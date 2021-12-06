@@ -1,7 +1,7 @@
 import enum
 import json
 from datetime import timedelta
-from fastapi import Depends, FastAPI, HTTPException, status, Form, File, UploadFile
+from fastapi import Depends, FastAPI, HTTPException, status, File, UploadFile
 from jose.exceptions import JWEError
 from pydantic.networks import EmailStr
 from starlette.responses import JSONResponse
@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from jose import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
+import os
 
 services.create_database()
 
@@ -116,6 +117,12 @@ def add_user_movie(movie: schema.MoviesCreate, db: Session = Depends(services.ge
     return services.create_movie(db=db, movie=movie, user_id=current_user.id)
 
 
+@app.delete("/delete/user")
+def hard_delete_user(db: Session = Depends(services.get_db), current_user: models.User = Depends(get_current_user)):
+    print(current_user.id)
+    return services.delete_user(db, current_user.email)
+
+
 @app.get("/movies")
 def read_movies(skip: int = 0, limit: int = 100, db: Session = Depends(services.get_db)):
     movie_all = services.get_movies(db=db, skip=skip, limit=limit)
@@ -209,14 +216,43 @@ async def forget_password(email: EmailStr, db: Session = Depends(services.get_db
     return JSONResponse(status_code=200, content={"reset_code": reset_code, "message": "email has been sent"})
 
 
-@app.post("/files/")
-async def create_file(
-    file: bytes = File(...), fileb: UploadFile = File(...), token: str = Form(...)
-):
+@app.post("/user/profile/")
+async def upload_user_photo(db: Session = Depends(services.get_db),
+                            file: UploadFile = File(...),
+                            current_user: models.User = Depends(
+                                get_current_user)
+                            ):
+    cwd = os.getcwd()
+    path_image_dir = "upload-images/user-profile/" + str(current_user.id) + "/"
+    full_image_path = os.path.join(cwd, path_image_dir, file.filename)
+
+    # Create directory if not exist
+    if not os.path.exists(path_image_dir):
+        dir = os.path.join(cwd, "upload-images")
+        os.mkdir(dir)
+        dir = os.path.join(cwd, "upload-images", "user-profile")
+        os.mkdir(dir)
+        dir = os.path.join(cwd, "upload-images",
+                           "user-profile", str(current_user.id))
+        os.mkdir(dir)
+
+    # Rename file to "profile.png"
+    file_name = full_image_path.replace(file.filename, "profile.png")
+
+    # Write file
+    with open(file_name, "wb+") as f:
+        f.write(file.file.read())
+        f.flush()
+        f.close()
+
+    # Save file in user profile database
+    current_user.user_profile_image = file_name
+    services.upload_profile_image(db, current_user.user_profile_image)
+
     return {
-        "file_size": len(file),
-        "token": token,
-        "fileb_content_type": fileb.content_type,
+        "status_code": status.HTTP_200_OK,
+        "detail": "Profile image upload success",
+        "profile_image": os.path.join(path_image_dir, "profile.png"),
     }
 
 
@@ -244,5 +280,3 @@ async def reset_password(data: schema.Reset_password, db: Session = Depends(serv
                 status_code=400, detail="Not Request"
             )
     return services.reset_user_password(db=db, data=data)
-
-    

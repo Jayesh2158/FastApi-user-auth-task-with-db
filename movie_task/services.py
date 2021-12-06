@@ -192,3 +192,19 @@ def reset_user_password(db: Session, data: schema.Reset_password):
     db.commit()
     db.refresh(user)
     return {"detail": "password reset successfully"}
+
+
+def upload_profile_image(db: Session, user_image):
+
+    db_profile_image = models.User(user_profile_image=user_image)
+    db.add(db_profile_image)
+    db.commit()
+    db.refresh(db_profile_image)
+    return db_profile_image
+
+# Todo
+
+
+def delete_user(db: Session, user_id: int):
+    return db.query(models.Movies, models.Comments).filter(models.Movies.owner_id == user_id).options(
+        joinedload(models.Movies.comment)).delete()

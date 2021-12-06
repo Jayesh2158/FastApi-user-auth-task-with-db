@@ -1,11 +1,17 @@
 from typing import List
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
+import os
+from dotenv import load_dotenv
+from pathlib import Path
 
+dotenv_path = Path('movie_task/.env')
+
+load_dotenv(dotenv_path=dotenv_path)
 
 conf = ConnectionConfig(
-    MAIL_USERNAME="lakman9520@gmail.com",
-    MAIL_PASSWORD="gg44ggml",
-    MAIL_FROM="lakman9520@gmail.com",
+    MAIL_USERNAME=os.getenv('MAIL_USERNAME'),
+    MAIL_PASSWORD=os.getenv('MAIL_PASSWORD'),
+    MAIL_FROM=os.getenv('MAIL_FROM'),
     MAIL_PORT=587,
     MAIL_SERVER="smtp.gmail.com",
     MAIL_TLS=True,
