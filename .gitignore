@@ -133,3 +133,5 @@ database.db
 movie_task/sample.html
 
 .png
+alembic/data.txt
+test.db

@@ -56,7 +56,7 @@ EMAIL = str(uuid.uuid4()) + "@gmail.com"
 def test_user_register(client):
     payload = {
         "password": PASSWORD,
-        "email": EMAIL,
+        "email": "josh@gmail.com",
         "first_name": str(uuid.uuid4()),
         "last_name": str(uuid.uuid4()),
     }
@@ -67,7 +67,7 @@ def test_user_register(client):
         json=payload,
     )
     response = json.loads(response.text)
-    assert response["email"] == EMAIL
+    assert response["email"] == "josh@gmail.com"
 
 
 def test_user_register_with_missing_field(client):
@@ -113,7 +113,7 @@ def test_get_user_token(client):
 
     data = {
         "grant_type": "",
-        "username": EMAIL,
+        "username": "josh@gmail.com",
         "password": PASSWORD,
         "scope": "",
         "client_id": "",
@@ -129,6 +129,14 @@ def test_get_user_token(client):
     HEADERS["Authorization"] = "Bearer {}".format(response["access_token"])
     HEADERS["Content-Type"] = "application/json"
     return response["access_token"]
+
+
+def test_forgot_password(client):
+    header_new = {"accept": "application/json"}
+    response = client.post(
+        "/forgetPass?email=josh@gmail.com", headers=header_new)
+    response = json.loads(response.text)
+    assert response["message"] == 'email has been sent'
 
 
 def test_get_users_data(client):
@@ -169,3 +177,30 @@ def test_delete_user(client):
     assert response.status_code == 200
     response = json.loads(response.text)
     assert response["detail"] == "successfull deleted"
+
+
+def test_get_movie_detail_with_wrong_credential(client):
+    response = client.get(
+        "/movies/123",
+    )
+    assert response.status_code == 404
+
+
+def test_delete_movie_with_worng_id(client):
+    response = client.delete(
+        "/movies/123",
+    )
+    assert response.status_code == 404
+
+
+def test_edit_movie_data(client):
+    data = {
+        "name": "string",
+        "release_year": 2000,
+        "genres": "string"
+    }
+    response = client.put(
+        "/movies/1",
+        json=data
+    )
+    assert response.status_code == 200

@@ -57,7 +57,7 @@ def get_movies(db: Session, skip: int, limit: int):
 
 
 def get_movie(db: Session, movie_id: int):
-    return db.query(models.Movies).filter(models.Movies.id == movie_id).options(joinedload(models.Movies.comment)).first()
+    return db.query(models.Movies).filter(models.Movies.id == movie_id).first() # options(joinedload(models.Movies.comment)).first()
 
 
 def delete_movie(db: Session, movie_id: int):
@@ -154,7 +154,7 @@ def blind_search(db: session, data: str, limit: int, skip: int):
 
 def create_reset_code(email: str, reset_code: str, db: Session):
     new_code = models.Forgotpass_code(
-        reset_code=reset_code, email=email, status="1")
+        reset_code=reset_code, email=email)
     db.add(new_code)
     db.commit()
     db.refresh(new_code)
@@ -206,5 +206,9 @@ def upload_profile_image(db: Session, user_image):
 
 
 def delete_user(db: Session, user_id: int):
-    return db.query(models.Movies, models.Comments).filter(models.Movies.owner_id == user_id).options(
-        joinedload(models.Movies.comment)).delete()
+    # s1 = db.query(models.User).filter(models.User.id == user_id).subquery()
+    # db.query(models.Movies).filter(models.Movies.owner_id.in_(
+    #     s1)).delete(synchronize_session='fetch')
+    db.query(models.User).filter(models.User.id == user_id).delete()
+    db.commit()
+    return {"detail": "successfull deleted"}

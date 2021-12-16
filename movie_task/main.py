@@ -5,7 +5,7 @@ from fastapi import Depends, FastAPI, HTTPException, status, File, UploadFile
 from jose.exceptions import JWEError
 from pydantic.networks import EmailStr
 from starlette.responses import JSONResponse
-from . import schema, services, jwt_handlers, models, emailUtils
+from movie_task import schema, services, jwt_handlers, models, emailUtils
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from jose import jwt
@@ -79,7 +79,7 @@ def login(db: Session = Depends(services.get_db), form_data: OAuth2PasswordReque
 @app.post("/users", response_model=schema.User)
 def register_user(user: schema.UserCreate, db: AsyncSession = Depends(services.get_db)):
     db_user = services.get_user_by_email(db=db, email=user.email)
-    if db_user:
+    if db_user is not None:
         raise HTTPException(
             status_code=400, detail="this email already in use."
         )
@@ -120,7 +120,7 @@ def add_user_movie(movie: schema.MoviesCreate, db: Session = Depends(services.ge
 @app.delete("/delete/user")
 def hard_delete_user(db: Session = Depends(services.get_db), current_user: models.User = Depends(get_current_user)):
     print(current_user.id)
-    return services.delete_user(db, current_user.email)
+    return services.delete_user(db, current_user.id)
 
 
 @app.get("/movies")

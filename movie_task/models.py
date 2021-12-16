@@ -12,7 +12,7 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     hashed_password = deferred(Column(String))
     user_profile_image = Column(String, nullable=True)
-    movies = relationship("Movies", back_populates="owner")
+    movies = relationship("Movies", backref='movie')
 
 
 class Comments(Base):
@@ -21,8 +21,7 @@ class Comments(Base):
     id = Column(Integer, primary_key=True, index=True)
     content = Column(String, index=True)
     movie_id = Column(Integer, ForeignKey('movies.id'))
-    movie = relationship("Movies", backref=backref(
-        "comment", cascade="all, delete-orphan"))
+    movie = relationship("Movies", back_populates="comment")
 
 
 class Movies(Base):
@@ -33,9 +32,8 @@ class Movies(Base):
     release_year = Column(Integer, index=True)
     genres = Column(String, index=True)
     owner_id = Column(Integer, ForeignKey('users.id'))
-    owner = relationship("User", cascade="save-update")
     comment = relationship(
-        "Comments", cascade="all, delete-orphan")
+        "Comments", back_populates="movie", cascade="all, delete")
 
 
 class Forgotpass_code(Base):
