@@ -1,26 +1,58 @@
-from typing import List
-from pydantic import BaseModel
-
-class Comments(BaseModel):
-    id : int
-    user_id : int
-    content : str
+from typing import List, Optional
+from pydantic import BaseModel, EmailStr
 
 
-class Movies(BaseModel):
-    id : int 
-    name : str
-    release_year : int
-    genres : str
-    user_id : int
-    comments : List[Comments] = []
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+
+class TokenData(BaseModel):
+    username: Optional[str] = None
+
+
+class CommentsBase(BaseModel):
+    content: str
+
+
+class CommentsCreate(CommentsBase):
+    pass
+
+
+class Comments(CommentsBase):
+    id: int
+    movie_id: int
+
+    class Config:
+        orm_mode = True
+
+
+class MoviesBase(BaseModel):
+    name: str
+    release_year: int
+    genres: str
+
+
+class MoviesCreate(MoviesBase):
+    pass
+
+
+class Movies(MoviesBase):
+    id: int
+    owner_id: int
+    comments: List[Comments] = []
+
+    class Config:
+        orm_mode = True
+
 
 class User_login(BaseModel):
-    username : str
-    password : str
+    username: str
+    password: str
+
 
 class UserBase(BaseModel):
-    email: str
+    email: EmailStr
 
 
 class UserCreate(UserBase):
@@ -33,3 +65,14 @@ class User(UserBase):
 
     class Config:
         orm_mode = True
+
+
+class ShowUser(BaseModel):
+    id: int
+    email: str
+
+
+class Reset_password(BaseModel):
+    reset_token: str
+    password: str
+    confirm_password: str
