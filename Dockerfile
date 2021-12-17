@@ -4,6 +4,6 @@ COPY requirements.txt .
 
 RUN pip install -r requirements.txt
 
-WORKDIR /movie_task
+COPY ./movie_task ./movie_task
 
-CMD ["uvicorn", "app.main:app", "--host=0.0.0.0", "--reload"]
+CMD ["uvicorn", "movie_task.main:app", "--host", "0.0.0.0", "--port", "80"]
