@@ -17,6 +17,7 @@ from .. import emailUtils
 
 app = APIRouter(
     prefix="/users",
+    tags=["Users"]
 )
 
 
@@ -33,7 +34,6 @@ async def health_check_api(db: session.Session = Depends(get_db)):
     return json.dumps({"healthy": False})
 
 
-@app.post("/token", response_model=schema.Token)
 @app.post("/login", response_model=schema.Token)
 def login(db: session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()):
     import pdb;pdb.set_trace()

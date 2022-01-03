@@ -9,6 +9,7 @@ from ..users import services as user_service
 
 app = APIRouter(
     prefix="/movies",
+    tags=["Movies & Comments"]
 )
 
 
