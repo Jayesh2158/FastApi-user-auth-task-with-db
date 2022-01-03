@@ -5,9 +5,8 @@ import sqlalchemy as sa
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-
-from . import main, services
-from .database import Base
+from ..database import Base
+from .. import main, dependencies
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
 
@@ -41,9 +40,9 @@ def client(session):
     def override_get_db():
         yield session
 
-    main.app.dependency_overrides[services.get_db] = override_get_db
+    main.app.dependency_overrides[dependencies.get_db] = override_get_db
     yield TestClient(main.app)
-    del main.app.dependency_overrides[services.get_db]
+    del main.app.dependency_overrides[dependencies.get_db]
 
 
 HEADERS = {"accept": "application/json", "Content-Type": "application/json"}
