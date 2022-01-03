@@ -13,6 +13,7 @@ from . import schema, models, services
 from ..dependencies import get_db, get_current_user
 import json
 from .. import emailUtils
+from ..movies_stuff import services as movie_services
 
 
 app = APIRouter(
@@ -36,7 +37,6 @@ async def health_check_api(db: session.Session = Depends(get_db)):
 
 @app.post("/login", response_model=schema.Token)
 def login(db: session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()):
-    import pdb;pdb.set_trace()
     user = authentication.authenticate_user(
         email=form_data.username, password=form_data.password, db=db)
     if not user:
@@ -107,7 +107,7 @@ async def reset_password(data: schema.Reset_password, db: session.Session = Depe
 @app.post("/app-login")
 def login_data(db: session.Session = Depends(get_db),
                current_user: models.User = Depends(get_current_user)):
-    return services.get_latest_movies(db=db, skip=0, limit=10)
+    return movie_services.get_latest_movies(db=db, skip=0, limit=10)
 
 
 @app.post("/profile/")

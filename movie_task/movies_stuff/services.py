@@ -95,6 +95,7 @@ def movies_by_action(db: Session, year: int, genre: str, skip: int, limit: int):
 
 
 def blind_search(db: session, data: str, limit: int, skip: int):
+    import pdb;pdb.set_trace()
     movie = db.query(models.Movies).filter(or_(models.Movies.name.contains(data), models.Movies.genres.contains(
         data), models.Movies.release_year.like(data))).options(
         joinedload(models.Movies.comment)).offset(skip).limit(limit).all()
